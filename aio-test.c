@@ -5,12 +5,18 @@
 #include <err.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/types.h>
 #include <sys/fcntl.h>
 #include <sys/queue.h>
+#include <sys/event.h>
+#include <sys/time.h>
 
 #define	MAX_FILE_OFFSET		(400ULL * 1024ULL * 1024ULL * 1024ULL)
 #define	BLOCK_SIZE		(4ULL * 1024ULL)
-#define	MAX_OUTSTANDING_IO	1024
+#define	MAX_OUTSTANDING_IO	256
+#define	NUM_KEVENT		16
+
+#define	DO_DEBUG		0
 
 struct aio_op {
 	struct aiocb aio;
@@ -68,7 +74,7 @@ aio_op_free(struct aio_op *a)
 }
 
 int
-aio_op_complete(struct aiocb *aio)
+aio_op_complete_aio(struct aiocb *aio)
 {
 	struct aio_op *a, *an;
 
@@ -86,6 +92,15 @@ aio_op_complete(struct aiocb *aio)
 	return (-1);
 }
 
+void
+aio_op_complete(struct aio_op *a, struct aiocb *aio)
+{
+	if (&a->aio != aio) {
+		printf("%s: a.aio != aio!\n", __func__);
+	}
+	aio_op_free(a);
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -93,10 +108,11 @@ main(int argc, const char *argv[])
 	int submitted = 0;
 	struct aio_op *a;
 	off_t o;
-	int r;
-	int i;
+	int r, n, i;
 	struct timespec tv;
 	struct aiocb *aio;
+	int kq_fd;
+	struct kevent kev_list[NUM_KEVENT];
 
 	fd = open("/dev/ada0", O_RDONLY | O_DIRECT);
 	if (fd < 0) {
@@ -104,6 +120,8 @@ main(int argc, const char *argv[])
 	}
 
 	TAILQ_INIT(&aio_op_list);
+
+	kq_fd = kqueue();
 
 	/*
 	 * Begin running
@@ -125,6 +143,18 @@ main(int argc, const char *argv[])
 #if DO_DEBUG
 				printf("%s: op %p: submitting\n", __func__, a);
 #endif
+
+				/*
+				 * XXX need to fill in the sigevent section of aiocb
+				 * XXX with the kqueue specific bits.
+				 */
+				a->aio.aio_sigevent.sigev_notify_kqueue = kq_fd;
+				a->aio.aio_sigevent.sigev_notify = SIGEV_KEVENT;
+				a->aio.aio_sigevent.sigev_value.sigval_ptr = a;
+
+				/*
+				 * Then, we can register for aio read.
+				 */
 				r = aio_read(&a->aio);
 				if (r != 0) {
 					printf("%s: op %p: failed; errno=%d (%s)\n", __func__, a, errno, strerror(errno));
@@ -135,6 +165,7 @@ main(int argc, const char *argv[])
 		}
 
 		while (submitted > 0) {
+#if 0
 			/*
 			 * Now, handle completions; 100ms timeout.
 			 */
@@ -145,12 +176,56 @@ main(int argc, const char *argv[])
 //				fprintf(stderr, "%s: timeout hit?\n", __func__);
 				break;
 			}
-			aio_op_complete(aio);
+			aio_op_complete_aio(aio);
 			if (submitted == 0)
 				fprintf(stderr, "%s: huh? freed event, but submit=0?\n", __func__);
 			else
 				submitted--;
+#endif
+			tv.tv_sec = 0;
+			tv.tv_nsec = 100 * 1000;
+#if DO_DEBUG
+			printf("%s: submitted=%d; calling kevent\n", __func__, submitted);
+#endif
+			n = kevent(kq_fd, NULL, 0, kev_list, NUM_KEVENT, &tv);
+
+			/* n == 0 equals 'timeout' */
+			if (n == 0)
+				break;
+
+			if (n < 0) {
+				warn("%s: kevent (completion)", __func__);
+				break;
+			}
+#if DO_DEBUG
+			printf("%s: %d events ready\n", __func__, n);
+#endif
+
+			/* Walk the list; look for completion information */
+			for (i = 0; i < n; i++) {
+				r = aio_return((struct aiocb *) kev_list[i].ident);
+
+				/* IO completed with error! */
+				if (r < 0) {
+					warn("%s: op %p: aio_return", __func__, (void *) kev_list[i].udata);
+				}
+
+				/* If it's >= 0 then it's the IO completion size */
+
+				/*
+				 * XXX should ensure somehow that we're lining up the aiocb and
+				 * XXX aio data pointers all correctly!
+				 *
+				 * XXX the ident field will be set to aiocb, so we can do some
+				 * XXX basic validation!
+				 */
+				aio_op_complete((struct aio_op *) kev_list[i].udata, (struct aiocb *) kev_list[i].ident);
+				submitted--;
+			}
 		}
+#if DO_DEBUG
+//		sleep(1);
+#endif
 	}
 
 	close(fd);
