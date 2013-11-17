@@ -8,9 +8,9 @@
 #include <sys/fcntl.h>
 #include <sys/queue.h>
 
-#define	MAX_FILE_OFFSET		(10 * 1024 * 1024 * 1024)
-#define	BLOCK_SIZE		(128 * 1024)
-#define	MAX_OUTSTANDING_IO	512
+#define	MAX_FILE_OFFSET		(400ULL * 1024ULL * 1024ULL * 1024ULL)
+#define	BLOCK_SIZE		(4ULL * 1024ULL)
+#define	MAX_OUTSTANDING_IO	1024
 
 struct aio_op {
 	struct aiocb aio;
@@ -32,7 +32,7 @@ aio_op_create(int fd, off_t offset, size_t len)
 		return (NULL);
 	}
 
-	a->buf = malloc(len);
+	a->buf = calloc(1, len);
 	if (a->buf == NULL) {
 		warn("%s: malloc", __func__);
 		free(a);
@@ -44,7 +44,9 @@ aio_op_create(int fd, off_t offset, size_t len)
 	a->aio.aio_offset = offset;
 	a->aio.aio_buf = a->buf;
 
+#if DO_DEBUG
 	printf("%s: op %p: offset %lld, len %lld\n", __func__, a, (long long) offset, (long long) len);
+#endif
 
 	TAILQ_INSERT_TAIL(&aio_op_list, a, node);
 
@@ -55,7 +57,9 @@ void
 aio_op_free(struct aio_op *a)
 {
 
+#if DO_DEBUG
 	printf("%s: op %p: freeing\n", __func__, a);
+#endif
 
 	if (a->buf)
 		free(a->buf);
@@ -70,7 +74,9 @@ aio_op_complete(struct aiocb *aio)
 
 	TAILQ_FOREACH_SAFE(a, &aio_op_list, node, an) {
 		if (aio == &a->aio) {
+#if DO_DEBUG
 			printf("%s: op %p: completing\n", __func__, a);
+#endif
 			aio_op_free(a);
 			return (0);
 		}
@@ -88,6 +94,7 @@ main(int argc, const char *argv[])
 	struct aio_op *a;
 	off_t o;
 	int r;
+	int i;
 	struct timespec tv;
 	struct aiocb *aio;
 
@@ -105,7 +112,7 @@ main(int argc, const char *argv[])
 		/*
 		 * Submit how many we need up to MAX_OUTSTANDING_IO..
 		 */
-		for (; submitted < MAX_OUTSTANDING_IO; submitted++) {
+		for (i = 0; submitted < MAX_OUTSTANDING_IO && i < 256; submitted++, i++) {
 			/*
 			 * XXX yes, this could be done by masking off the bits that
 			 * represent BLOCK_SIZE..
@@ -115,7 +122,9 @@ main(int argc, const char *argv[])
 
 			a = aio_op_create(fd, o, BLOCK_SIZE);
 			if (a != NULL) {
+#if DO_DEBUG
 				printf("%s: op %p: submitting\n", __func__, a);
+#endif
 				r = aio_read(&a->aio);
 				if (r != 0) {
 					printf("%s: op %p: failed; errno=%d (%s)\n", __func__, a, errno, strerror(errno));
@@ -125,12 +134,12 @@ main(int argc, const char *argv[])
 			}
 		}
 
-		for (;;) {
+		while (submitted > 0) {
 			/*
-			 * Now, handle completions; 10ms timeout.
+			 * Now, handle completions; 100ms timeout.
 			 */
 			tv.tv_sec = 0;
-			tv.tv_nsec = 10 * 1000;
+			tv.tv_nsec = 100 * 1000;
 			r = aio_waitcomplete(&aio, &tv);
 			if (r < 0) {
 //				fprintf(stderr, "%s: timeout hit?\n", __func__);
