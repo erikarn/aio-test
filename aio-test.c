@@ -14,6 +14,7 @@
 #define	MAX_FILE_OFFSET		(400ULL * 1024ULL * 1024ULL * 1024ULL)
 #define	BLOCK_SIZE		(4ULL * 1024ULL)
 #define	MAX_OUTSTANDING_IO	256
+#define	MAX_SUBMIT_LOOP		256
 #define	NUM_KEVENT		16
 
 #define	DO_DEBUG		0
@@ -130,7 +131,7 @@ main(int argc, const char *argv[])
 		/*
 		 * Submit how many we need up to MAX_OUTSTANDING_IO..
 		 */
-		for (; submitted < MAX_OUTSTANDING_IO; submitted++) {
+		for (i = 0; i < MAX_SUBMIT_LOOP && submitted < MAX_OUTSTANDING_IO; i++) {
 			/*
 			 * XXX yes, this could be done by masking off the bits that
 			 * represent BLOCK_SIZE..
@@ -157,10 +158,17 @@ main(int argc, const char *argv[])
 				 */
 				r = aio_read(&a->aio);
 				if (r != 0) {
+					/*
+					 * Ideally we'd just queue the request locally, put
+					 * some back-pressure on queuing any further IO
+					 * and restart the IO queue when we've completed
+					 * things.  This, however, is just for testing.
+					 */
 					printf("%s: op %p: failed; errno=%d (%s)\n", __func__, a, errno, strerror(errno));
 					aio_op_free(a);
 					break;
 				}
+				submitted++;
 			}
 		}
 
