@@ -4,5 +4,6 @@ NO_MAN=	1
 
 PROG=	aio-test
 SRCS=	aio-test.c
+CFLAGS+=	-O -g -ggdb
 
 .include <bsd.prog.mk>
