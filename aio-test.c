@@ -130,7 +130,7 @@ main(int argc, const char *argv[])
 		/*
 		 * Submit how many we need up to MAX_OUTSTANDING_IO..
 		 */
-		for (i = 0; submitted < MAX_OUTSTANDING_IO && i < 256; submitted++, i++) {
+		for (; submitted < MAX_OUTSTANDING_IO; submitted++) {
 			/*
 			 * XXX yes, this could be done by masking off the bits that
 			 * represent BLOCK_SIZE..
