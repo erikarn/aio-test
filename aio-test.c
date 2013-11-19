@@ -120,17 +120,37 @@ int
 aio_tidyup_listio(struct aiocb *lio_aio[], int nlio)
 {
 	int i;
-	int r;
+	int r, s;
 	for (i = 0; i < nlio; i++) {
 		r = aio_error(lio_aio[i]);
+		/* In progress? It's in queue, not completed */
 		if (r == EINPROGRESS)
 			continue;
+
+		/* returns -1 and errno==EINVAL? Then this wasn't queued */
 		if (r == -1 && errno == EINVAL) {
+			fprintf(stderr, "%s: aio %p: wasn't queued\n", __func__, lio_aio[i]);
 			aio_op_complete_aio(lio_aio[i]);
 			continue;
 		}
-		fprintf(stderr, "%s: aio %p: r=%d, errno=%d\n", __func__, lio_aio[i], r, errno);
-		/* XXX what to do here? */
+
+		/*
+		 * returned 0? Then it's already completed successfully.
+		 */ 
+		if (r == 0) {
+			s = aio_return(lio_aio[i]);
+			fprintf(stderr, "%s: aio %p: completed successfully; return=%d!\n", __func__, lio_aio[i], s);
+			aio_op_complete_aio(lio_aio[i]);
+			continue;
+		}
+
+		/*
+		 * Anything else is an AIO that completed unsuccessfully, so call aio_return()
+		 * and then complete it.
+		 */
+		s = aio_return(lio_aio[i]);
+		fprintf(stderr, "%s: aio %p: completed unsuccessfully; r=%d, return=%d\n", __func__, lio_aio[i], r, s);
+		aio_op_complete_aio(lio_aio[i]);
 	}
 
 	return (0);
