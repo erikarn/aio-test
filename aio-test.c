@@ -113,8 +113,9 @@ aio_op_complete_aio(struct aiocb *aio)
  *
  * Find which requests were submitted and which are invalid.
  *
- * XXX if we get anything other than EINVAL or EINPROGRESS, should we complete
- * the IO? or will it show up in kqueue correctly?
+ * XXX since we're submitting these via kqueue, then we should
+ * XXX already have a cached copy of the local state
+ * XXX (in aio->aio_sigevent.sigev_value.sigval_ptr.)
  */
 int
 aio_tidyup_listio(struct aiocb *lio_aio[], int nlio)
