@@ -54,7 +54,7 @@ aio_op_create(int fd, off_t offset, size_t len)
 		return (NULL);
 	}
 
-	a->buf = calloc(1, len);
+	a->buf = malloc(len);
 	if (a->buf == NULL) {
 		warn("%s: malloc", __func__);
 		free(a);
@@ -294,10 +294,10 @@ main(int argc, const char *argv[])
 		while (submitted > 0) {
 #if 0
 			/*
-			 * Now, handle completions; 100ms timeout.
+			 * Now, handle completions; 1s timeout.
 			 */
 			tv.tv_sec = 0;
-			tv.tv_nsec = 100 * 1000;
+			tv.tv_nsec = 1000 * 1000;
 			r = aio_waitcomplete(&aio, &tv);
 			if (r < 0) {
 //				fprintf(stderr, "%s: timeout hit?\n", __func__);
@@ -314,6 +314,8 @@ main(int argc, const char *argv[])
 #if DO_DEBUG
 			printf("%s: submitted=%d; calling kevent\n", __func__, submitted);
 #endif
+			tv.tv_sec = 0;
+			tv.tv_nsec = 1000 * 1000;
 			n = kevent(kq_fd, NULL, 0, kev_list, NUM_KEVENT, &tv);
 
 			/* n == 0 equals 'timeout' */
