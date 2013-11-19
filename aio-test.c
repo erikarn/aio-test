@@ -108,6 +108,34 @@ aio_op_complete_aio(struct aiocb *aio)
 	return (-1);
 }
 
+/*
+ * We've had an error from lio_listio().
+ *
+ * Find which requests were submitted and which are invalid.
+ *
+ * XXX if we get anything other than EINVAL or EINPROGRESS, should we complete
+ * the IO? or will it show up in kqueue correctly?
+ */
+int
+aio_tidyup_listio(struct aiocb *lio_aio[], int nlio)
+{
+	int i;
+	int r;
+	for (i = 0; i < nlio; i++) {
+		r = aio_error(lio_aio[i]);
+		if (r == EINPROGRESS)
+			continue;
+		if (r == -1 && errno == EINVAL) {
+			aio_op_complete_aio(lio_aio[i]);
+			continue;
+		}
+		fprintf(stderr, "%s: aio %p: r=%d, errno=%d\n", __func__, lio_aio[i], r, errno);
+		/* XXX what to do here? */
+	}
+
+	return (0);
+}
+
 void
 aio_op_complete(struct aio_op *a, struct aiocb *aio)
 {
@@ -191,6 +219,8 @@ main(int argc, const char *argv[])
 	int num_aiod = 0;
 	struct aio_disk *ad;
 	int block_size, max_outstanding_io;
+	int nlio = 0;
+	struct aiocb *lio_aio[AIO_LISTIO_MAX];
 
 	TAILQ_INIT(&aio_op_list);
 	aiod = calloc(MAX_AIO_DISKS, sizeof(struct aio_disk));
@@ -272,6 +302,7 @@ main(int argc, const char *argv[])
 				a->aio.aio_sigevent.sigev_notify = SIGEV_KEVENT;
 				a->aio.aio_sigevent.sigev_value.sigval_ptr = a;
 
+#if 0
 				/*
 				 * Then, we can register for aio read.
 				 */
@@ -288,8 +319,49 @@ main(int argc, const char *argv[])
 					break;
 				}
 				submitted++;
+#endif
+
+				/* We're a read */
+				a->aio.aio_lio_opcode = LIO_READ;
+
+				/* Whether or not we succeed - bump submitted. */
+				submitted++;
+				/* Add to the listio list */
+				lio_aio[nlio] = &a->aio;
+				nlio ++;
+				if (nlio < AIO_LISTIO_MAX)
+					continue;
+				/*
+				 * Ok, we've filled our listio; so submit.
+				 */
+				r = lio_listio(LIO_NOWAIT, lio_aio, nlio, NULL);
+				if (r < 0) {
+					/* Error */
+					warn("%s: lio_listio", __func__);
+					aio_tidyup_listio(lio_aio, nlio);
+					nlio = 0;
+					continue;
+				}
+
+				/* ok, go back to the beginning */
+				nlio = 0;
 			}
 		}
+
+		/*
+		 * Submit whatever's left over.
+		 */
+		r = lio_listio(LIO_NOWAIT, lio_aio, nlio, NULL);
+		if (r < 0) {
+			/* Error */
+			warn("%s: lio_listio", __func__);
+			aio_tidyup_listio(lio_aio, nlio);
+		}
+
+		/* ok, go back to the beginning regardless of success or failure */
+		nlio = 0;
+
+		/* Now, handle completions */
 
 		while (submitted > 0) {
 #if 0
