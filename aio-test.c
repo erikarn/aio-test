@@ -199,11 +199,46 @@ aio_disk_open(struct aio_disk *aiod)
 	}
 
 	if (ioctl(aiod->fd, DIOCGMEDIASIZE, &disk_size, sizeof(disk_size)) < 0) {
+		close(aiod->fd);
+		aiod->fd = -1;
 		warn("%s: (%s): ioctl(DIOCGMEDIASIZE)", __func__, aiod->pathname);
 		return (-1);
 	}
 
 	aiod->file_size = disk_size;
+
+	printf("%s: (%s): size=%llu, block_size=%llu\n",
+	    __func__,
+	    aiod->pathname,
+	    (unsigned long long) aiod->file_size,
+	    (unsigned long long) aiod->block_size);
+
+	return (0);
+}
+
+/*
+ * Open up an exisiting aio file.  returns 0 on OK, -1 and errno set on error.
+ */
+int
+aio_file_open(struct aio_disk *aiod)
+{
+	struct stat sb;
+
+	if (aiod->fd != -1)
+		close(aiod->fd);
+
+	aiod->fd = open(aiod->pathname, O_RDONLY | O_DIRECT);
+	if (aiod->fd < 0) {
+		warn("%s: open (%s)", __func__, aiod->pathname);
+		return (-1);
+	}
+
+	if (fstat(aiod->fd, &sb) < 0) {
+		warn("%s: (%s): fstat", __func__, aiod->pathname);
+		return (-1);
+	}
+
+	aiod->file_size = sb.st_size;
 
 	printf("%s: (%s): size=%llu, block_size=%llu\n",
 	    __func__,
@@ -278,8 +313,11 @@ main(int argc, const char *argv[])
 
 	/* Now, open each */
 	for (i = 0; i < num_aiod; i++) {
-		if (aio_disk_open(&aiod[i]) < 0)
-			exit(1);
+		if (aio_disk_open(&aiod[i]) < 0) {
+			if (aio_file_open(&aiod[i]) < 0) {
+				exit(1);
+			}
+		}
 	}
 
 	/*
