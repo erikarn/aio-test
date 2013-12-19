@@ -361,25 +361,6 @@ main(int argc, const char *argv[])
 				a->aio.aio_sigevent.sigev_notify = SIGEV_KEVENT;
 				a->aio.aio_sigevent.sigev_value.sigval_ptr = a;
 
-#if 0
-				/*
-				 * Then, we can register for aio read.
-				 */
-				r = aio_read(&a->aio);
-				if (r != 0) {
-					/*
-					 * Ideally we'd just queue the request locally, put
-					 * some back-pressure on queuing any further IO
-					 * and restart the IO queue when we've completed
-					 * things.  This, however, is just for testing.
-					 */
-					printf("%s: op %p: failed; errno=%d (%s)\n", __func__, a, errno, strerror(errno));
-					aio_op_free(a);
-					break;
-				}
-				submitted++;
-#endif
-
 				/* We're a read */
 				a->aio.aio_lio_opcode = LIO_READ;
 
@@ -423,23 +404,9 @@ main(int argc, const char *argv[])
 		/* Now, handle completions */
 
 		while (submitted > 0) {
-#if 0
 			/*
-			 * Now, handle completions; 1s timeout.
+			 * Wait up to 100ms.
 			 */
-			tv.tv_sec = 0;
-			tv.tv_nsec = 1000 * 1000;
-			r = aio_waitcomplete(&aio, &tv);
-			if (r < 0) {
-//				fprintf(stderr, "%s: timeout hit?\n", __func__);
-				break;
-			}
-			aio_op_complete_aio(aio);
-			if (submitted == 0)
-				fprintf(stderr, "%s: huh? freed event, but submit=0?\n", __func__);
-			else
-				submitted--;
-#endif
 			tv.tv_sec = 0;
 			tv.tv_nsec = 100 * 1000;
 #if DO_DEBUG
@@ -483,9 +450,6 @@ main(int argc, const char *argv[])
 				submitted--;
 			}
 		}
-#if DO_DEBUG
-//		sleep(1);
-#endif
 	}
 
 	/*
