@@ -16,8 +16,6 @@
 #include "aio_op.h"
 #include "aio_disk.h"
 
-#define	AIO_DO_DEBUG		0
-
 /*
  * Setup (but do not open) an aio_disk structure.
  */
