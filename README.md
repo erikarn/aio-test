@@ -27,7 +27,7 @@ How is it used?
 * Run this as a user (if it's for a file) or as a root user (if it's for
   a physical disk device.)
 
-  # aio-test <IO size> <number of outstanding IO ops> <disk|file 1> (<disk|file 2>) ...
+  $ aio-test <IO size> <number of outstanding IO ops> <disk|file 1> (<disk|file 2>) ...
 
 Physical IO path
 ----------------
