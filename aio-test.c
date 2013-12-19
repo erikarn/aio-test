@@ -13,6 +13,9 @@
 #include <sys/stat.h>
 #include <sys/disk.h>
 
+#include "aio_op.h"
+#include "aio_disk.h"
+
 #define	MAX_SUBMIT_LOOP		256
 #define	NUM_KEVENT		32
 
@@ -20,20 +23,6 @@
 #define	MAX_AIO_DISKS		128
 
 #define	DO_DEBUG		0
-
-struct aio_op {
-	struct aiocb aio;
-	TAILQ_ENTRY(aio_op) node;
-	char *buf;
-	size_t bufsize;
-};
-
-struct aio_disk {
-	int fd;
-	const char *pathname;
-	size_t file_size;
-	size_t block_size;
-};
 
 /*
  * This is a global list of AIO operations.
