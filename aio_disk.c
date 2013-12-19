@@ -13,6 +13,8 @@
 #include <sys/stat.h>
 #include <sys/disk.h>
 
+#include "aio_cfg.h"
+
 #include "aio_op.h"
 #include "aio_disk.h"
 

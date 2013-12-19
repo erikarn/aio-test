@@ -13,16 +13,10 @@
 #include <sys/stat.h>
 #include <sys/disk.h>
 
+#include "aio_cfg.h"
+
 #include "aio_op.h"
 #include "aio_disk.h"
-
-#define	MAX_SUBMIT_LOOP		256
-#define	NUM_KEVENT		32
-
-/* Maximum number of aio_disk entries we'll support */
-#define	MAX_AIO_DISKS		128
-
-#define	AIO_DO_DEBUG		0
 
 /*
  * We've had an error from lio_listio().

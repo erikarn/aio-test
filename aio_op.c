@@ -13,9 +13,9 @@
 #include <sys/stat.h>
 #include <sys/disk.h>
 
-#include "aio_op.h"
+#include "aio_cfg.h"
 
-#define	AIO_DO_DEBUG		0
+#include "aio_op.h"
 
 /*
  * This is a global list of AIO operations.
