@@ -22,7 +22,7 @@
 /* Maximum number of aio_disk entries we'll support */
 #define	MAX_AIO_DISKS		128
 
-#define	DO_DEBUG		0
+#define	AIO_DO_DEBUG		0
 
 /*
  * This is a global list of AIO operations.
@@ -55,7 +55,7 @@ aio_op_create(int fd, off_t offset, size_t len)
 	a->aio.aio_offset = offset;
 	a->aio.aio_buf = a->buf;
 
-#if DO_DEBUG
+#if AIO_DO_DEBUG
 	printf("%s: op %p: offset %lld, len %lld\n", __func__, a, (long long) offset, (long long) len);
 #endif
 
@@ -68,7 +68,7 @@ void
 aio_op_free(struct aio_op *a)
 {
 
-#if DO_DEBUG
+#if AIO_DO_DEBUG
 	printf("%s: op %p: freeing\n", __func__, a);
 #endif
 
@@ -85,7 +85,7 @@ aio_op_complete_aio(struct aiocb *aio)
 
 	TAILQ_FOREACH_SAFE(a, &aio_op_list, node, an) {
 		if (aio == &a->aio) {
-#if DO_DEBUG
+#if AIO_DO_DEBUG
 			printf("%s: op %p: completing\n", __func__, a);
 #endif
 			aio_op_free(a);
@@ -338,7 +338,7 @@ main(int argc, const char *argv[])
 
 			a = aio_op_create(ad->fd, o, ad->block_size);
 			if (a != NULL) {
-#if DO_DEBUG
+#if AIO_DO_DEBUG
 				printf("%s: op %p: submitting\n", __func__, a);
 #endif
 
@@ -398,7 +398,7 @@ main(int argc, const char *argv[])
 			 */
 			tv.tv_sec = 0;
 			tv.tv_nsec = 100 * 1000;
-#if DO_DEBUG
+#if AIO_DO_DEBUG
 			printf("%s: submitted=%d; calling kevent\n", __func__, submitted);
 #endif
 			tv.tv_sec = 0;
@@ -413,7 +413,7 @@ main(int argc, const char *argv[])
 				warn("%s: kevent (completion)", __func__);
 				break;
 			}
-#if DO_DEBUG
+#if AIO_DO_DEBUG
 			printf("%s: %d events ready\n", __func__, n);
 #endif
 
