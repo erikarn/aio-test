@@ -307,8 +307,6 @@ main(int argc, const char *argv[])
 #if AIO_DO_DEBUG
 			printf("%s: submitted=%d; calling kevent\n", __func__, submitted);
 #endif
-			tv.tv_sec = 0;
-			tv.tv_nsec = 1000 * 1000;
 			n = kevent(kq_fd, NULL, 0, kev_list, NUM_KEVENT, &tv);
 
 			/* n == 0 equals 'timeout' */
