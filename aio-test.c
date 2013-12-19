@@ -117,11 +117,6 @@ main(int argc, const char *argv[])
 		num_aiod++;
 	}
 
-#if 0
-	(void) aio_disk_init(&aiod[0], "/dev/ada0", BLOCK_SIZE);
-	num_aiod ++;
-#endif
-
 	/* Now, open each */
 	for (i = 0; i < num_aiod; i++) {
 		if (aio_disk_open(&aiod[i]) < 0) {
