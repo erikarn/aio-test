@@ -20,14 +20,18 @@ How is it used?
 * Tweak the following values to match how much IO you wish to submit
   in parallel:
 
+```
   vfs.aio.max_aio_per_proc: 128
   vfs.aio.max_aio_queue_per_proc: 256
   vfs.aio.max_buf_aio: 128
+```
 
 * Run this as a user (if it's for a file) or as a root user (if it's for
   a physical disk device.)
 
+```
   $ aio-test <IO size> <number of outstanding IO ops> <disk|file 1> (<disk|file 2>) ...
+```
 
 Physical IO path
 ----------------
