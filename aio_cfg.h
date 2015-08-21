@@ -1,5 +1,5 @@
 #ifndef	__AIO_CFG_H__
-#define	__AOP_CFG_H__
+#define	__AIO_CFG_H__
 
 /* Debug printing */
 #define	AIO_DO_DEBUG		0
